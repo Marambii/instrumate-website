@@ -31,3 +31,8 @@ Thumbs.db
 
 # optional: coverage reports
 coverage/git rm -r --cached node_modules
+
+# database files
+*.db
+*.sqlite
+*.sqlite3
