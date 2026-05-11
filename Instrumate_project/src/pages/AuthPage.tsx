@@ -37,11 +37,15 @@ const AuthPage: React.FC = () => {
       }
     } catch (error: any) {
       // If Django throws an error (like "One must be a student or teacher")
-      const errorMessage = error.response?.data || "Something went wrong";
-      console.error("Auth Error:", errorMessage);
-      alert(JSON.stringify(errorMessage));
-    }
-  };
+      if (error.response && error.response.status === 400) {
+    // This catches the "Username already exists" error from Django
+    const serverErrors = error.response.data;
+    alert(JSON.stringify(serverErrors)); 
+  } else {
+    console.error("Auth Error:", error);
+    alert("An unexpected error occurred.");
+  }}
+};
 
   const closeForm = () => {
     setAuthMode(null);
