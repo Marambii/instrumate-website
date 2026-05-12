@@ -8,17 +8,22 @@ const Demo: React.FC = () => {
   const mountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+
     if (!mountRef.current) return;
+    // Add this temporarily at the top of your useEffect
+    
 
     // --- Scene & Renderer Setup ---
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xfaf9f6);
+    // scene.background = new THREE.Color(0xfaf9f6);
+    scene.background = new THREE.Color(0x111111); // Near black
 
     const width = mountRef.current.clientWidth;
     const height = mountRef.current.clientHeight;
 
     const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
-    camera.position.set(0, 1.5, 4); // Better initial view for signing
+    camera.position.set(0, 1.5, 3); // 3 meters away is perfect for a full-body view
+
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -26,7 +31,9 @@ const Demo: React.FC = () => {
     mountRef.current.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true; // Smoother feel
+    controls.enableDamping = true; // Smoother 
+    controls.target.set(0, 1, 0);   // Look at the "chest" height
+    controls.update();
     
     // Lighting
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2);
@@ -45,27 +52,52 @@ const Demo: React.FC = () => {
 
     // --- Loading Assets ---
     const loader = new GLTFLoader();
-    
-    // Ensure female.glb is in public/ folder
-    loader.load(
-      "/female.glb", 
-      (gltf) => {
-        scene.add(gltf.scene);
-        gltf.scene.traverse((o: any) => {
-          if (o.isSkinnedMesh) {
-            skeleton = o.skeleton;
-          }
-        });
-        
-        // Center view on avatar
-        const box = new THREE.Box3().setFromObject(gltf.scene);
-        const center = new THREE.Vector3();
-        box.getCenter(center);
-        controls.target.set(center.x, center.y, center.z);
-      },
-      undefined,
-      (err) => console.error("Error loading GLB:", err)
+
+    // Add high-intensity lights to verify visibility
+// Replace your current lights with these high-intensity ones
+  const ambientLight = new THREE.AmbientLight(0xffffff, 3.0); // Crank this up
+  scene.add(ambientLight);
+
+  const frontLight = new THREE.DirectionalLight(0xffffff, 2.0);
+  frontLight.position.set(0, 2, 4);
+  scene.add(frontLight);
+
+    // Force the camera to a position that usually captures standard GLB models
+    camera.position.set(0, 1.6, 5); 
+    controls.target.set(0, 1, 0); // Point at the "chest" area
+    controls.update();
+
+    const testCube = new THREE.Mesh(
+      new THREE.BoxGeometry(0.5, 0.5, 0.5),
+      new THREE.MeshStandardMaterial({ color: 0xff0000 })
     );
+    testCube.position.set(0, 1, 0);
+    scene.add(testCube);
+    
+    loader.load("/female.glb", (gltf) => {
+      const model = gltf.scene;
+      
+      // 1. Force Scale: Ensure it's not microscopic
+      model.scale.set(1, 1, 1); 
+      
+      // 2. Force Position: Put it exactly where the red square is
+      model.position.set(0, 0, 0); 
+
+      model.traverse((o: any) => {
+        if (o.isSkinnedMesh) {
+          skeleton = o.skeleton;
+          o.frustumCulled = false;
+          // 3. Force Material Visibility: Remove transparency issues
+          if (o.material) {
+            o.material.transparent = false;
+            o.material.opacity = 1.0;
+          }
+        }
+      });
+
+      scene.add(model);
+      console.log("Avatar added to scene at origin.");
+    });
 
     // Ensure JSON is in public/ folder
     fetch("/BETTER_smoothed_frozen.json")
@@ -80,19 +112,29 @@ const Demo: React.FC = () => {
     const animate = () => {
       animationId = requestAnimationFrame(animate);
 
-      if (skeleton && mediapipeData) {
-        const mpFrame = mediapipeData[frameIndex];
-        
-        mpPose.updateMpLandmarks(mpFrame);
-        // Transform to world coordinates
-        mpPose.transformToWorld(camera, 4.0, new THREE.Vector3(0, -1, 0));
-        mpPose.add3dJointsForMixamo();
-        mpPose.rigSolverForMixamo(skeleton);
+      // Only run logic if assets are present AND the skeleton has bones
+      if (skeleton && skeleton.bones.length > 0 && mediapipeData) {
+       
+        if (skeleton && mediapipeData) {
+          const mpFrame = mediapipeData[frameIndex];
+          if (mpFrame) {
+            try {
+              mpPose.updateMpLandmarks(mpFrame);
+              // Ensure transformToWorld isn't outputting extreme values
+              // Use a 0,0,0 offset and a smaller distance to keep it at the origin
+              mpPose.transformToWorld(camera, 1.0, new THREE.Vector3(0, 0, 0));
+              mpPose.add3dJointsForMixamo();
+              mpPose.rigSolverForMixamo(skeleton);
+            } catch (e) {
+              console.error("Rigging math error:", e);
+            }
+          }
+        }
 
         frameIndex = (frameIndex + 1) % mediapipeData.length;
       }
 
-      controls.update(); // Required if damping is enabled
+      controls.update();
       renderer.render(scene, camera);
     };
     animate();

@@ -4,7 +4,7 @@ import { Group } from 'three';
 
 export default function AvatarModel() {
   const group = useRef<Group>(null);
-  const { scene, animations } = useGLTF('/models/avatar.glb');
+  const { scene, animations } = useGLTF('/female.glb');
   const { actions } = useAnimations(animations, group);
 
   useEffect(() => {

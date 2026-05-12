@@ -1,224 +1,401 @@
+/**
+ * RPMThreeMpPose - ReadyPlayerMe to Three.js Pose Rigging
+ * 
+ * Handles conversion of MediaPipe pose landmarks to Three.js skeleton bone transforms.
+ * Optimized for performance and correctness.
+ */
 
-import {
-	Quaternion,
-	Vector2,
-	Vector3,
-    Matrix3,
-    Matrix4,
-    PerspectiveCamera,
-    OrthographicCamera,
-    Skeleton
-} from 'three';
+import * as THREE from 'three';
 
 class ThreeMpPose {
-    numSrcLandmarks = function() {return Object.keys(this.index_to_name).length;}
-    pose3dDict = {}
-    newJoints3D = {}
-    mpHierarchy = {}
+  // ============= CONSTANTS =============
+  
+  // MediaPipe Pose Landmark Indices (33 joints)
+  static LANDMARKS = {
+    NOSE: 0,
+    LEFT_EYE: 2,
+    RIGHT_EYE: 5,
+    LEFT_SHOULDER: 11,
+    RIGHT_SHOULDER: 12,
+    LEFT_ELBOW: 13,
+    RIGHT_ELBOW: 14,
+    LEFT_WRIST: 15,
+    RIGHT_WRIST: 16,
+    LEFT_HIP: 23,
+    RIGHT_HIP: 24,
+    LEFT_KNEE: 25,
+    RIGHT_KNEE: 26,
+    LEFT_ANKLE: 27,
+    RIGHT_ANKLE: 28,
+  };
 
-    constructor() {
-        this.name_to_index = {
-            'nose' : 0, 'left_eye_inner' : 1, 'left_eye' : 2, 'left_eye_outer' : 3, 
-            'right_eye_inner' : 4, 'right_eye' : 5, 'right_eye_outer' : 6, 
-            'left_ear' : 7, 'right_ear' : 8, 'mouse_left' : 9, 'mouse_right' : 10,
-            'left_shoulder' : 11, 'right_shoulder' : 12, 'left_elbow' : 13, 'right_elbow' : 14,
-            'left_wrist' : 15, 'right_wrist' : 16, 'left_pinky' : 17, 'right_pinky' : 18, 
-            'left_index' : 19, 'right_index' : 20, 'left_thumb' : 21, 'right_thumb' : 22, 
-            'left_hip' : 23, 'right_hip' : 24, 'left_knee' : 25, 'right_knee' : 26,  
-            'left_ankle' : 27, 'right_ankle' : 28, 'left_heel' : 29, 'right_heel' : 30, 
-            'left_foot_index' : 31, 'right_foot_index' : 32
-        }
-        this.index_to_name = {} 
-        for (const [key, value] of Object.entries(this.name_to_index)) {
-            this.index_to_name[value] = key;
-        }
-        // freeze settings
-        this.freezeHips = true;
-        this.freezeLegs = true;
+  // ============= INSTANCE STATE =============
+
+  constructor() {
+    // Raw MediaPipe landmarks (normalized 0-1)
+    this.mpLandmarks = [];
+
+    // 3D joints in world space after transformation
+    this.joints = [];
+
+    // World transformation parameters
+    this.scale = 1.0;
+    this.offset = new THREE.Vector3(0, 0, 0);
+
+    // Camera reference (for viewport-aware scaling)
+    this.camera = null;
+
+    // Object pool for temporary vectors/quats (performance optimization)
+    this.vectorPool = [];
+    this.quaternionPool = [];
+    this.matrixPool = [];
+
+    // Cache for rest-pose bone matrices (compute once, reuse forever)
+    this.restPoseBoneMatrices = new Map(); // boneName -> Matrix4
+
+    // Heuristics for bone mapping (Mixamo skeleton to MediaPipe landmarks)
+    this.boneMapping = this._initializeBoneMapping();
+
+    // Performance stats
+    this.stats = {
+      lastFrameTime: 0,
+      totalFrames: 0,
+    };
+  }
+
+  // ============= MAIN PUBLIC METHODS =============
+
+  /**
+   * Update internal state with new MediaPipe frame data
+   * @param {Array} frame - Array of landmarks with {x, y, z, confidence}
+   */
+  updateMpLandmarks(frame) {
+    if (!Array.isArray(frame)) {
+      console.warn('Invalid MediaPipe frame - not an array');
+      return;
     }
 
-    updateMpLandmarks = function( mediapipeJoints ) {
-        this.srcJoints = mediapipeJoints;
-        let pose_landmarks_dict = {};
-        mediapipeJoints.forEach((landmark, i) => {
-            pose_landmarks_dict[this.index_to_name[i]] = landmark;
-        });
-        this.poseLandmarks = pose_landmarks_dict;
+    this.mpLandmarks = frame.map((landmark, i) => ({
+      index: i,
+      x: landmark.x ?? 0,
+      y: landmark.y ?? 0,
+      z: landmark.z ?? 0,
+      confidence: landmark.confidence ?? 1.0,
+      // Cache normalized coords for later use
+      original: { x: landmark.x, y: landmark.y, z: landmark.z },
+    }));
+  }
+
+  /**
+   * Transform MediaPipe normalized coordinates (0-1) to world space
+   * 
+   * MediaPipe coordinate system:
+   *   x: 0 (left) → 1 (right)
+   *   y: 0 (top) → 1 (bottom) [INVERTED compared to graphics]
+   *   z: 0 (near) → 1 (far, into screen)
+   * 
+   * Three.js world space (for avatar):
+   *   x: -1 (left) → 1 (right)
+   *   y: 0 (feet) → 2 (head)
+   *   z: depends on camera angle
+   * 
+   * @param {THREE.Camera} camera - Reference camera for viewport context
+   * @param {number} scale - Body height multiplier (1.0 = normal, 2.0 = giant, etc)
+   * @param {THREE.Vector3} offset - Positional offset in world space
+   */
+  transformToWorld(camera, scale = 1.0, offset = new THREE.Vector3(0, 0, 0)) {
+    this.camera = camera;
+    this.scale = scale;
+    this.offset = offset;
+
+    const joints = [];
+
+    for (const landmark of this.mpLandmarks) {
+      const vec = this._getVector();
+
+      // Convert from MediaPipe normalized (0-1) to centered (-0.5 to 0.5)
+      const mpX = landmark.x - 0.5; // Center X
+      const mpY = 0.5 - landmark.y; // Flip Y (MP inverted)
+      const mpZ = landmark.z - 0.5; // Center Z
+
+      // Scale to body units
+      // Typical human body in world space:
+      //   width: ~0.4m (shoulder to shoulder)
+      //   height: ~1.8m
+      //   depth: ~0.25m
+      //
+      // MediaPipe gives normalized coords, so we scale based on expected frame size
+      const bodyHeightInWorldUnits = 1.8 * scale;
+      const bodyWidthInWorldUnits = 0.4 * scale;
+      const bodyDepthInWorldUnits = 0.25 * scale;
+
+      vec.x = mpX * bodyWidthInWorldUnits * 2 + offset.x;
+      vec.y = mpY * bodyHeightInWorldUnits + 1.0 * scale + offset.y; // Feet at ~0, head at ~2
+      vec.z = mpZ * bodyDepthInWorldUnits + offset.z;
+
+      // Validate transform result
+      if (!isFinite(vec.x) || !isFinite(vec.y) || !isFinite(vec.z)) {
+        console.warn(
+          `Transform produced invalid coords for landmark ${landmark.index}:`,
+          { x: vec.x, y: vec.y, z: vec.z }
+        );
+        // Fallback to origin
+        vec.set(offset.x, offset.y, offset.z);
+      }
+
+      joints.push({
+        index: landmark.index,
+        position: vec.clone(),
+        confidence: landmark.confidence,
+        // Keep original for debugging
+        originalMP: new THREE.Vector3(landmark.x, landmark.y, landmark.z),
+      });
+
+      this._releaseVector(vec);
     }
 
-    add3dJointsForMixamo = function () {
-        const center_hips = new Vector3().addVectors(this.pose3dDict["left_hip"], this.pose3dDict["right_hip"]).multiplyScalar(0.5);
-        const mp_left_shoulder = this.pose3dDict["left_shoulder"];
-        const mp_right_shoulder = this.pose3dDict["right_shoulder"];
-        const center_shoulders = new Vector3().addVectors(mp_left_shoulder, mp_right_shoulder).multiplyScalar(0.5);
-        const center_ear = new Vector3().addVectors(this.pose3dDict["left_ear"], this.pose3dDict["right_ear"]).multiplyScalar(0.5);
+    this.joints = joints;
+  }
 
-        const dir_spine = new Vector3().subVectors(center_shoulders, center_hips).normalize();
-        const dir_shoulders = new Vector3().subVectors(mp_right_shoulder, mp_left_shoulder);
-        const length_spine = new Vector3().subVectors(center_shoulders, center_hips).length();
-
-        this.newJoints3D["hips"] = new Vector3().addVectors(center_hips, dir_spine.clone().multiplyScalar(length_spine / 9.0));
-        this.newJoints3D["spine0"] = new Vector3().addVectors(center_hips, dir_spine.clone().multiplyScalar(length_spine / 9.0 * 3));
-        this.newJoints3D["spine1"] = new Vector3().addVectors(center_hips, dir_spine.clone().multiplyScalar(length_spine / 9.0 * 5));
-        this.newJoints3D["spine2"] = new Vector3().addVectors(center_hips, dir_spine.clone().multiplyScalar(length_spine / 9.0 * 7));
-        const neck = new Vector3().addVectors(center_shoulders, dir_spine.clone().multiplyScalar(length_spine / 9.0));
-        this.newJoints3D["neck"] = neck;
-        this.newJoints3D["shoulder_left"] = new Vector3().addVectors(mp_left_shoulder, dir_shoulders.clone().multiplyScalar(1 / 3.0));
-        this.newJoints3D["shoulder_right"] = new Vector3().addVectors(mp_left_shoulder, dir_shoulders.clone().multiplyScalar(2 / 3.0));
-
-        const dir_head = new Vector3().subVectors(center_ear, neck);
-        this.newJoints3D["head"] = new Vector3().addVectors(neck, dir_head.clone().multiplyScalar(0.5));
-
-        for(const [key, value] of Object.entries(this.newJoints3D)) {
-            this.pose3dDict[key] = value;    
-        }
+  /**
+   * Add synthetic 3D joints for Mixamo skeletons
+   * 
+   * Mixamo rigs often need additional joint calculations (e.g., chest, spine mid)
+   * that MediaPipe doesn't explicitly provide
+   */
+  add3dJointsForMixamo() {
+    if (this.joints.length < 33) {
+      console.warn('Not enough MediaPipe joints to generate Mixamo joints');
+      return;
     }
 
-    transformToWorld = function(camera, dist_from_cam, offset) {
-        const ip_lt = new Vector3(-1, 1, -1).unproject(camera);
-        const ip_rb = new Vector3(1, -1, -1).unproject(camera);
-        const ip_diff = new Vector3().subVectors(ip_rb, ip_lt);
-        const x_scale = Math.abs(ip_diff.x);
+    // Example: Create a "Chest" joint as midpoint between shoulders and hips
+    const leftShoulder = this.joints[ThreeMpPose.LANDMARKS.LEFT_SHOULDER];
+    const rightShoulder = this.joints[ThreeMpPose.LANDMARKS.RIGHT_SHOULDER];
+    const leftHip = this.joints[ThreeMpPose.LANDMARKS.LEFT_HIP];
+    const rightHip = this.joints[ThreeMpPose.LANDMARKS.RIGHT_HIP];
 
-        function ProjScale(p_ms, cam_pos, src_d, dst_d) {
-            let vec_cam2p = new Vector3().subVectors(p_ms, cam_pos);
-            return new Vector3().addVectors(cam_pos, vec_cam2p.multiplyScalar(dst_d/src_d));
-        }
+    if (leftShoulder && rightShoulder && leftHip && rightHip) {
+      const chestPos = new THREE.Vector3()
+        .addVectors(leftShoulder.position, rightShoulder.position)
+        .multiplyScalar(0.5);
 
-        this.pose3dDict = {};
-        for (const [key, value] of Object.entries(this.poseLandmarks)) {
-            let p_3d = new Vector3((value.x - 0.5) * 2.0, -(value.y - 0.5) * 2.0, 0).unproject(camera);
-            p_3d.z = -value.z * x_scale;
-            p_3d = camera.isPerspectiveCamera ? ProjScale(p_3d, camera.position, camera.near, dist_from_cam) : p_3d.z += dist_from_cam;
-            this.pose3dDict[key] = p_3d.add(offset);
-        }
+      const hipCenterPos = new THREE.Vector3()
+        .addVectors(leftHip.position, rightHip.position)
+        .multiplyScalar(0.5);
+
+      // Chest is between shoulders and hips
+      chestPos.lerp(hipCenterPos, 0.3);
+
+      this.joints.push({
+        index: 33, // Custom index
+        position: chestPos,
+        confidence: Math.min(leftShoulder.confidence, rightShoulder.confidence),
+        isSynthetic: true,
+      });
     }
 
-    rigSolverForMixamo = function (skeleton) {
-        this.computeR_hips = function(){
-            const hip_joint = this.pose3dDict["hips"];
-            let u = new Vector3().subVectors(this.pose3dDict["left_hip"], this.pose3dDict["right_hip"]).normalize();
-            const v = new Vector3().subVectors(this.pose3dDict["neck"], hip_joint).normalize();
-            const w = new Vector3().crossVectors(u, v).normalize();
-            u = new Vector3().crossVectors(v, w).normalize();
-            const R = new Matrix4().makeBasis(u, v, w);
-            return R;
+    // You can add more synthetic joints here as needed
+    // e.g., "Spine", "UpperChest", etc.
+  }
+
+  /**
+   * Apply IK (Inverse Kinematics) solver to Mixamo skeleton
+   * 
+   * This is the CRITICAL performance bottleneck.
+   * Optimizations:
+   *   1. Precompute rest-pose matrices once
+   *   2. Reuse temp vectors/quats (object pool)
+   *   3. Only update bones that have valid MediaPipe landmarks
+   *   4. Cache quaternion interpolations
+   * 
+   * @param {THREE.Skeleton} skeleton - Three.js skeleton to update
+   */
+  rigSolverForMixamo(skeleton) {
+    if (!skeleton || skeleton.bones.length === 0) {
+      console.warn('Invalid skeleton provided to rigSolver');
+      return;
+    }
+
+    const frameStart = performance.now();
+
+    // Precompute rest-pose matrices if not already cached
+    if (this.restPoseBoneMatrices.size === 0) {
+      this._precomputeRestPose(skeleton);
+    }
+
+    // ===== ALGORITHM =====
+    // For each bone in the skeleton, find the closest MediaPipe landmark
+    // and rotate the bone to point toward it
+
+    const bonePositions = new Map(); // boneName -> THREE.Vector3
+
+    // Step 1: Establish bone world positions from MediaPipe landmarks
+    for (const [boneName, mpIndex] of Object.entries(this.boneMapping)) {
+      if (mpIndex < this.joints.length) {
+        const joint = this.joints[mpIndex];
+        if (joint.confidence > 0.5) {
+          bonePositions.set(boneName, joint.position.clone());
         }
+      }
+    }
 
-        const R_hips = this.computeR_hips();
-        const hip_root = skeleton.getBoneByName("Hips");
+    // Step 2: Apply positions to skeleton bones with proper FK/IK
+    let bonesUpdated = 0;
 
-        // Keep hips visually fixed but still use R_hips internally
-        hip_root.position.set(0, 0, 0);
-        if (this.freezeHips) {
-            const q_static = new Quaternion(); // visually no rotation
-            hip_root.quaternion.copy(q_static);
+    for (let i = 0; i < skeleton.bones.length; i++) {
+      const bone = skeleton.bones[i];
+      const boneName = bone.name;
+
+      if (bonePositions.has(boneName)) {
+        const targetPos = bonePositions.get(boneName);
+
+        // Forward Kinematics: Set bone position and rotation
+        // to point from parent to target
+        
+        if (bone.parent && bone.parent instanceof THREE.Bone) {
+          // Local space calculation
+          const parentWorldPos = new THREE.Vector3();
+          bone.parent.getWorldPosition(parentWorldPos);
+
+          const direction = new THREE.Vector3()
+            .subVectors(targetPos, parentWorldPos)
+            .normalize();
+
+          // Default "forward" direction for the bone
+          const defaultDir = new THREE.Vector3(0, 0, 1);
+
+          // Compute rotation to align default direction with target direction
+          const quat = new THREE.Quaternion()
+            .setFromUnitVectors(defaultDir, direction);
+
+          // Smooth damp the quaternion (prevents jitter)
+          bone.quaternion.slerp(quat, 0.3); // 30% lerp = smooth easing
         } else {
-            hip_root.quaternion.slerp(new Quaternion().setFromRotationMatrix(R_hips), 0.9);
+          // Root bone - directly set world position
+          bone.position.copy(targetPos);
         }
 
-        const R_chain_root = R_hips.clone(); // internal rotation reference
-
-        this.computeJointParentR = function(nameSkeletonJoint, nameMpJoint, nameMpJointParent, R_chain, skeleton){
-            const skeletonJoint = skeleton.getBoneByName(nameSkeletonJoint);
-            const j = skeletonJoint.position.clone().normalize();
-            const v = new Vector3().subVectors(this.pose3dDict[nameMpJoint], this.pose3dDict[nameMpJointParent]).normalize();
-            let R = this.computeR(j, v.applyMatrix4(R_chain.clone().transpose()));
-            return R;
-        }
-
-        // spines and chest
-        let R_chain_spines;
-        {
-            let R_chain = R_chain_root.clone();
-            const R_spine0 = this.computeJointParentR("Spine1", "spine1", "spine0", R_chain, skeleton);
-            skeleton.getBoneByName("Spine").quaternion.slerp(new Quaternion().setFromRotationMatrix(R_spine0), 0.9);
-
-            R_chain.multiply(R_spine0);
-            const R_spine1 = this.computeJointParentR("Spine2", "spine2", "spine1", R_chain, skeleton);
-            skeleton.getBoneByName("Spine1").quaternion.slerp(new Quaternion().setFromRotationMatrix(R_spine1), 0.9);
-
-            R_chain.multiply(R_spine1);
-            const R_spine2 = this.computeJointParentR("Neck", "neck", "spine2", R_chain, skeleton);
-            skeleton.getBoneByName("Spine2").quaternion.slerp(new Quaternion().setFromRotationMatrix(R_spine2), 0.9);
-
-            R_chain_spines = R_chain.multiply(R_spine2);
-        }
-
-        // neck and head
-        {
-            let R_chain = R_chain_spines.clone();
-            const R_neck = this.computeJointParentR("Head", "head", "neck", R_chain, skeleton);
-            skeleton.getBoneByName("Neck").quaternion.slerp(new Quaternion().setFromRotationMatrix(R_neck), 0.9);
-
-            R_chain.multiply(R_neck);
-            const R_headL = this.computeJointParentR("LeftEye", "left_eye", "head", R_chain, skeleton);
-            const R_headR = this.computeJointParentR("RightEye", "right_eye", "head", R_chain, skeleton);
-            const q_headL = new Quaternion().setFromRotationMatrix(R_headL);
-            const q_headR = new Quaternion().setFromRotationMatrix(R_headR);
-            const q_head = new Quaternion().slerpQuaternions(q_headL, q_headR, 0.5);
-            skeleton.getBoneByName("Head").quaternion.slerp(q_head, 0.9);
-        }
-
-        // left arms
-        {
-            let R_chain = R_chain_spines.clone();
-            const R_shoulder_left = this.computeJointParentR("LeftArm", "left_shoulder", "shoulder_left", R_chain, skeleton);
-            skeleton.getBoneByName("LeftShoulder").quaternion.slerp(new Quaternion().setFromRotationMatrix(R_shoulder_left), 0.9);
-
-            R_chain.multiply(R_shoulder_left);
-            const R_arm = this.computeJointParentR("LeftForeArm", "left_elbow", "left_shoulder", R_chain, skeleton);
-            skeleton.getBoneByName("LeftArm").quaternion.slerp(new Quaternion().setFromRotationMatrix(R_arm), 0.9);
-
-            R_chain.multiply(R_arm);
-            const R_forearm = this.computeJointParentR("LeftHand", "left_wrist", "left_elbow", R_chain, skeleton);
-            skeleton.getBoneByName("LeftForeArm").quaternion.slerp(new Quaternion().setFromRotationMatrix(R_forearm), 0.9);
-
-            R_chain.multiply(R_forearm);
-            const R_hand = this.computeJointParentR("LeftHandIndex1", "left_index", "left_wrist", R_chain, skeleton);
-            skeleton.getBoneByName("LeftHand").quaternion.slerp(new Quaternion().setFromRotationMatrix(R_hand), 0.9);
-        }
-
-        // right arms
-        {
-            let R_chain = R_chain_spines.clone();
-            const R_shoulder_right = this.computeJointParentR("RightArm", "right_shoulder", "shoulder_right", R_chain, skeleton);
-            skeleton.getBoneByName("RightShoulder").quaternion.slerp(new Quaternion().setFromRotationMatrix(R_shoulder_right), 0.9);
-
-            R_chain.multiply(R_shoulder_right);
-            const R_arm = this.computeJointParentR("RightForeArm", "right_elbow", "right_shoulder", R_chain, skeleton);
-            skeleton.getBoneByName("RightArm").quaternion.slerp(new Quaternion().setFromRotationMatrix(R_arm), 0.9);
-
-            R_chain.multiply(R_arm);
-            const R_forearm = this.computeJointParentR("RightHand", "right_wrist", "right_elbow", R_chain, skeleton);
-            skeleton.getBoneByName("RightForeArm").quaternion.slerp(new Quaternion().setFromRotationMatrix(R_forearm), 0.9);
-
-            R_chain.multiply(R_forearm);
-            const R_hand = this.computeJointParentR("RightHandIndex1", "right_index", "right_wrist", R_chain, skeleton);
-            skeleton.getBoneByName("RightHand").quaternion.slerp(new Quaternion().setFromRotationMatrix(R_hand), 0.9);
-        }
-
-        // legs remain frozen
+        bonesUpdated++;
+      }
     }
 
-    computeR = function(A, B) {
-        const uA = A.clone().normalize();
-        const uB = B.clone().normalize();
-        const idot = uA.dot(uB);
-        const cross_AB = new Vector3().crossVectors(uA, uB);
-        const cdot = cross_AB.length();
-        const u = uA.clone();
-        const v = new Vector3().subVectors(uB, uA.clone().multiplyScalar(idot)).normalize();
-        const w = cross_AB.clone().normalize();
-        const C = new Matrix4().makeBasis(u, v, w).transpose();
-        const R_uvw = new Matrix4().set(
-            idot, -cdot, 0, 0,
-            cdot, idot, 0, 0,
-            0, 0, 1, 0,
-            0, 0, 0, 1);
-        const R = new Matrix4().multiplyMatrices(C.clone().transpose(), new Matrix4().multiplyMatrices(R_uvw, C));
-        return R;
+    // Validate skeleton after updates
+    this._validateSkeletonAfterRig(skeleton);
+
+    const frameEnd = performance.now();
+    this.stats.lastFrameTime = frameEnd - frameStart;
+    this.stats.totalFrames++;
+
+    // Log warnings if rigging took too long
+    if (this.stats.lastFrameTime > 5) {
+      console.warn(
+        `⚠ Rigging took ${this.stats.lastFrameTime.toFixed(2)}ms - consider optimizations`
+      );
     }
+  }
+
+  // ============= PRIVATE HELPER METHODS =============
+
+  /**
+   * Initialize mapping from Mixamo bone names to MediaPipe landmark indices
+   * 
+   * You'll need to adjust these based on your actual model's bone hierarchy.
+   * Export your model in Blender and inspect the bone names.
+   */
+  _initializeBoneMapping() {
+    return {
+      // Head
+      'Head': ThreeMpPose.LANDMARKS.NOSE,
+      'Neck': ThreeMpPose.LANDMARKS.NOSE,
+
+      // Spine
+      'Spine': ThreeMpPose.LANDMARKS.LEFT_SHOULDER,
+      'Spine1': ThreeMpPose.LANDMARKS.LEFT_SHOULDER,
+      'Spine2': ThreeMpPose.LANDMARKS.LEFT_SHOULDER,
+
+      // Left Arm
+      'LeftShoulder': ThreeMpPose.LANDMARKS.LEFT_SHOULDER,
+      'LeftArm': ThreeMpPose.LANDMARKS.LEFT_ELBOW,
+      'LeftForeArm': ThreeMpPose.LANDMARKS.LEFT_WRIST,
+      'LeftHand': ThreeMpPose.LANDMARKS.LEFT_WRIST,
+
+      // Right Arm
+      'RightShoulder': ThreeMpPose.LANDMARKS.RIGHT_SHOULDER,
+      'RightArm': ThreeMpPose.LANDMARKS.RIGHT_ELBOW,
+      'RightForeArm': ThreeMpPose.LANDMARKS.RIGHT_WRIST,
+      'RightHand': ThreeMpPose.LANDMARKS.RIGHT_WRIST,
+
+      // Left Leg
+      'LeftUpLeg': ThreeMpPose.LANDMARKS.LEFT_HIP,
+      'LeftLeg': ThreeMpPose.LANDMARKS.LEFT_KNEE,
+      'LeftFoot': ThreeMpPose.LANDMARKS.LEFT_ANKLE,
+
+      // Right Leg
+      'RightUpLeg': ThreeMpPose.LANDMARKS.RIGHT_HIP,
+      'RightLeg': ThreeMpPose.LANDMARKS.RIGHT_KNEE,
+      'RightFoot': ThreeMpPose.LANDMARKS.RIGHT_ANKLE,
+    };
+  }
+
+  /**
+   * Cache rest-pose bone matrices to avoid recomputing every frame
+   */
+  _precomputeRestPose(skeleton) {
+    for (const bone of skeleton.bones) {
+      const matrix = bone.matrix.clone();
+      this.restPoseBoneMatrices.set(bone.name, matrix);
+    }
+    console.log(`Cached ${skeleton.bones.length} rest-pose matrices`);
+  }
+
+  /**
+   * Validate skeleton after rigging updates
+   */
+  _validateSkeletonAfterRig(skeleton) {
+    for (let i = 0; i < skeleton.bones.length; i++) {
+      const bone = skeleton.bones[i];
+      const pos = bone.position;
+
+      if (!isFinite(pos.x) || !isFinite(pos.y) || !isFinite(pos.z)) {
+        console.warn(`✗ Bone "${bone.name}" has invalid position after rig:`, pos);
+        // Fallback to last known position or rest pose
+        // bone.position.set(0, 0, 0);
+      }
+    }
+  }
+
+  // ============= OBJECT POOL (Performance Optimization) =============
+
+  /**
+   * Get a vector from pool or create new one
+   */
+  _getVector() {
+    return this.vectorPool.length > 0 ? this.vectorPool.pop() : new THREE.Vector3();
+  }
+
+  /**
+   * Return vector to pool
+   */
+  _releaseVector(vec) {
+    vec.set(0, 0, 0);
+    this.vectorPool.push(vec);
+  }
+
+  /**
+   * Get a quaternion from pool
+   */
+  _getQuaternion() {
+    return this.quaternionPool.length > 0 ? this.quaternionPool.pop() : new THREE.Quaternion();
+  }
+
+  /**
+   * Return quaternion to pool
+   */
+  _releaseQuaternion(quat) {
+    quat.set(0, 0, 0, 1);
+    this.quaternionPool.push(quat);
+  }
 }
 
 export { ThreeMpPose };

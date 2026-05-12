@@ -92,7 +92,7 @@ function animate() {
     const mpFrame = mediapipeData[frameIndex];
 
     mpPose.updateMpLandmarks(mpFrame);
-    mpPose.transformToWorld(camera, 4.0, new THREE.Vector3(0, -1, 0)); 
+    mpPose.transformToWorld(camera, 0.1, new THREE.Vector3(0, -1, 0)); 
     // ^ optional offset down to counter frozen hips
 
     mpPose.add3dJointsForMixamo();
