@@ -9,7 +9,8 @@ const Header: React.FC = () => {
       textColor: "#fff",
       links: [
         { label: "Sign Detection", href: "/sign-detection" },
-        { label: "Translation", href: "/translation" }
+        { label: "Translation", href: "/translation" },
+        { label: "Signing Demo", href: "/demo" } 
       ]
     },
     {

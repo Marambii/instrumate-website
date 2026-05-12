@@ -15,6 +15,7 @@ import Translation from "./pages/Translation";
 import Learn from "./pages/Learn";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
+import Demo from "./demo/demo";
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -35,6 +36,7 @@ function AnimatedRoutes() {
           <Route path="/Learn" element={<Learn />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/demo" element={<Demo />} />
         </Route>
       </Routes>
     </AnimatePresence>
