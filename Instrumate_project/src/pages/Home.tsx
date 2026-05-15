@@ -139,7 +139,7 @@ const Home: React.FC = () => {
               {/* Lavender Pill */}
               <div className="absolute top-0 right-0 w-[85%] h-36 bg-[#E9E4FF] rounded-full flex items-center px-10 shadow-sm border border-white/50">
                 <img 
-                  src="https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?auto=format&fit=crop&q=80&w=300" 
+                  src="https://images.unsplash.com/photo-1617056239820-8ce90ba48193?q=80&w=1176&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" 
                   alt="Student 1" 
                   className="w-28 h-28 rounded-full object-cover border-8 border-white -mt-16 shadow-lg" 
                 />
@@ -155,7 +155,7 @@ const Home: React.FC = () => {
                     <HandMetal size={40} className="text-white/20 -rotate-12 group-hover/pill:rotate-0 transition-transform duration-700" />
                  </div>
                  <img 
-                   src="https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&q=80&w=300" 
+                   src="https://images.unsplash.com/photo-1632932693914-89b90ae3d16d?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MjN8fGFmcmljYW4lMjBjaGlsZHJlbnxlbnwwfHwwfHx8MA%3D%3D" 
                    alt="Student 2" 
                    className="w-36 h-36 rounded-full object-cover border-8 border-white absolute -right-6 -top-6 group-hover/pill:scale-110 transition-transform" 
                  />
@@ -165,7 +165,7 @@ const Home: React.FC = () => {
               {/* Yellow Pill */}
               <div className="absolute bottom-4 right-0 w-[80%] h-36 bg-[#FFD89C] rounded-full shadow-sm flex items-center px-12 border border-white/50">
                 <img 
-                  src="https://images.unsplash.com/photo-1596464716127-f2a82984de30?auto=format&fit=crop&q=80&w=300" 
+                  src="https://images.unsplash.com/photo-1473649085228-583485e6e4d7?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OHx8YWZyaWNhbiUyMGNoaWxkcmVufGVufDB8fDB8fHww" 
                   alt="Student 3" 
                   className="w-28 h-28 rounded-full object-cover border-8 border-white -mb-20 shadow-lg" 
                 />
