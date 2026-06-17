@@ -1,3 +1,6 @@
+# This is InstruMate Africa, a project that leverages ML and avatars to enable effective learning for differently abled learners
+
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

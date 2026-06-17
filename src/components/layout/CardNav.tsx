@@ -1,7 +1,7 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
-import { gsap } from 'gsap';
+import React, { useLayoutEffect, useRef, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { GoArrowUpRight } from 'react-icons/go';
+import { GoArrowUpRight, GoChevronDown } from 'react-icons/go';
+import { gsap } from 'gsap';
 import './CardNav.css';
 
 interface CardNavLink {
@@ -12,7 +12,7 @@ interface CardNavLink {
 
 interface CardNavItem {
   label: string;
-  bgColor: string;
+  bgColor: string; // Retained if you want to color code dots/dropdown elements
   textColor: string;
   links: CardNavLink[];
 }
@@ -20,7 +20,6 @@ interface CardNavItem {
 interface CardNavProps {
   items: CardNavItem[];
   logoAlt?: string;
-  baseColor?: string;
   buttonBgColor?: string;
   buttonTextColor?: string;
 }
@@ -28,93 +27,123 @@ interface CardNavProps {
 const CardNav: React.FC<CardNavProps> = ({
   items,
   logoAlt = 'Instrumate',
-  baseColor = '#FAF9F6',
   buttonBgColor = '#5E3BEE',
   buttonTextColor = '#fff'
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const navRef = useRef<HTMLElement | null>(null);
-  const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
-  const tlRef = useRef<gsap.core.Timeline | null>(null);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  const navContainerRef = useRef<HTMLDivElement>(null);
+  const navInnerRef = useRef<HTMLElement>(null);
 
+  // Monitor scroll behavior to trigger morph state
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 50) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // GSAP animation smooth morph transitions when state changes
   useLayoutEffect(() => {
-    if (!navRef.current) return;
+    if (!navInnerRef.current) return;
 
-    const tl = gsap.timeline({ paused: true });
-    
-    tl.to(navRef.current, {
-      height: window.innerWidth < 768 ? 'auto' : 320,
-      duration: 0.4,
-      ease: "power3.out"
-    });
-
-    tl.to(cardsRef.current, {
-      opacity: 1,
-      y: 0,
-      duration: 0.3,
-      stagger: 0.1,
-      ease: "back.out(1.7)"
-    }, "-=0.2");
-
-    tlRef.current = tl;
-    return () => { tl.kill(); };
-  }, [items]);
-
-  const toggleMenu = () => {
-    if (!tlRef.current) return;
-    if (!isExpanded) {
-      setIsExpanded(true);
-      tlRef.current.play();
+    if (isScrolled) {
+      // Morphing into floating fixed header style
+      gsap.to(navInnerRef.current, {
+        maxWidth: '900px',
+        borderRadius: '2rem',
+        padding: '0.5rem 1.5rem',
+        boxShadow: '0 10px 30px rgba(45, 26, 74, 0.08)',
+        backgroundColor: '#ffffff',
+        duration: 0.4,
+        ease: 'power2.out'
+      });
     } else {
-      tlRef.current.reverse().eventCallback("onReverseComplete", () => {
-        setIsExpanded(false);
+      // Morphing back to full inline/natural layout
+      gsap.to(navInnerRef.current, {
+        maxWidth: '1200px',
+        borderRadius: '0px',
+        padding: '1.2rem 2rem',
+        boxShadow: '0 0px 0px rgba(0,0,0,0)',
+        backgroundColor: 'transparent',
+        duration: 0.4,
+        ease: 'power2.out'
       });
     }
-  };
+  }, [isScrolled]);
 
   return (
-    <div className="card-nav-container">
-      <nav ref={navRef} className={`card-nav ${isExpanded ? 'open' : ''}`} style={{ backgroundColor: baseColor }}>
-        <div className="card-nav-top">
-          <div className="hamburger-menu" onClick={toggleMenu}>
-            <div className={`hamburger-line transition-all ${isExpanded ? 'rotate-45 translate-y-2' : ''}`} />
-            <div className={`hamburger-line transition-all ${isExpanded ? '-rotate-45 -translate-y-0.5' : ''}`} />
-          </div>
-
-          <div className="logo-container">
-            {/* --- UPDATED: Logo is now a Link to Home --- */}
-            <Link 
-              to="/" 
-              className="font-[800] text-[#2D1A4A] text-xl tracking-tighter hover:text-[#5E3BEE] transition-colors duration-300 no-underline"
-            >
-              {logoAlt}
-            </Link>
-          </div>
-
-          <Link to='/SignUp' className="card-nav-cta-button" style={{ backgroundColor: buttonBgColor, color: buttonTextColor }}>
-            Join Us
+    <div ref={navContainerRef} className={`nav-wrapper ${isScrolled ? 'scrolled' : 'at-top'}`}>
+      <nav ref={navInnerRef} className="main-navbar">
+        
+        {/* Logo */}
+        <div className="logo-container">
+          <Link to="/" className="nav-logo">
+            {logoAlt}
           </Link>
         </div>
 
-        <div className={`card-nav-content ${isExpanded ? 'flex' : 'hidden'}`}>
+        {/* Desktop Dropdown Links */}
+        <div className="nav-links-desktop">
           {items.map((item, idx) => (
-            <div
-              key={idx}
-              className="nav-card"
-              ref={(el) => { cardsRef.current[idx] = el; }}
-              style={{ backgroundColor: item.bgColor, color: item.textColor, opacity: 0, transform: 'translateY(30px)' }}
+            <div 
+              key={idx} 
+              className="nav-dropdown-wrapper"
+              onMouseEnter={() => setActiveDropdown(idx)}
+              onMouseLeave={() => setActiveDropdown(null)}
             >
-              <div className="nav-card-label font-bold text-xl">{item.label}</div>
-              <div className="nav-card-links">
+              <button className="nav-dropdown-trigger">
+                {item.label} <GoChevronDown className={`chevron-icon ${activeDropdown === idx ? 'rotate' : ''}`} />
+              </button>
+              
+              <div className={`nav-dropdown-menu ${activeDropdown === idx ? 'visible' : ''}`}>
                 {item.links.map((lnk, i) => (
-                  <Link key={i} className="nav-card-link" to={lnk.href} onClick={toggleMenu}>
-                    <GoArrowUpRight /> {lnk.label}
+                  <Link key={i} className="dropdown-link-item" to={lnk.href}>
+                    <span>{lnk.label}</span>
+                    <GoArrowUpRight className="link-arrow" />
                   </Link>
                 ))}
               </div>
             </div>
           ))}
         </div>
+
+        {/* Action Button & Mobile Toggle */}
+        <div className="nav-actions">
+          <Link to='/SignUp' className="card-nav-cta-button" style={{ backgroundColor: buttonBgColor, color: buttonTextColor }}>
+            Join Us
+          </Link>
+
+          <button className="mobile-toggle" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+            <div className={`burger-line ${mobileMenuOpen ? 'open-line-1' : ''}`} />
+            <div className={`burger-line ${mobileMenuOpen ? 'open-line-2' : ''}`} />
+          </button>
+        </div>
+
+        {/* Mobile Navigation Drawer */}
+        <div className={`mobile-drawer ${mobileMenuOpen ? 'active' : ''}`}>
+          {items.map((item, idx) => (
+            <div key={idx} className="mobile-drawer-section">
+              <h4 className="mobile-section-title">{item.label}</h4>
+              <div className="mobile-section-links">
+                {item.links.map((lnk, i) => (
+                  <Link key={i} to={lnk.href} onClick={() => setMobileMenuOpen(false)}>
+                    {lnk.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
       </nav>
     </div>
   );

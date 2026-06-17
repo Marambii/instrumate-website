@@ -16,11 +16,7 @@ const Home: React.FC = () => {
 
   return (
     <PageWrapper>
-      {/* STYLING TOOLKIT 
-          - Custom Outfit font
-          - Squiggle animation logic 
-          - Smooth selection colors
-      */}
+      {/* STYLING TOOLKIT */}
       <style>
         {`
           @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
@@ -42,9 +38,10 @@ const Home: React.FC = () => {
             pointer-events: none;
           }
 
+          /* UPDATED: Centered glow elements to balance the design layout perfectly */
           .hero-gradient {
-            background: radial-gradient(circle at 10% 20%, rgba(94, 59, 238, 0.05) 0%, transparent 50%),
-                        radial-gradient(circle at 90% 80%, rgba(245, 158, 11, 0.05) 0%, transparent 50%);
+            background: radial-gradient(circle at 50% 35%, rgba(94, 59, 238, 0.18) 0%, transparent 60%),
+                        radial-gradient(circle at 50% 85%, rgba(245, 158, 11, 0.12) 0%, transparent 55%);
           }
         `}
       </style>
@@ -52,7 +49,6 @@ const Home: React.FC = () => {
       <main className="min-h-screen bg-[#FAF9F6] font-['Outfit',sans-serif] pb-32 overflow-x-hidden hero-gradient">
         
         {/* --- 1. HERO SECTION --- */}
-        {/* pt-10 is enough now because the MainLayout provides the rest */}
         <section className="relative max-w-7xl mx-auto px-6 pt-10 md:pt-16 text-center">          
           {/* Playful Floating Decorations */}
           <div className="absolute top-0 left-10 text-[#5E3BEE] animate-pulse opacity-20">
