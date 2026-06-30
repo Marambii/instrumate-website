@@ -6,7 +6,7 @@ on:
       - main
 
   # schedule:
-  #   - cron: '0 0 0 * *' # Uncomment to schedule the workflow
+  #   - cron: '0 0 0 * *' 
 
   pull_request:
     branches:
