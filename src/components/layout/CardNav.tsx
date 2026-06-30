@@ -91,8 +91,8 @@ const CardNav: React.FC<CardNavProps> = ({
           </Link>
         </div>
 
-        {/* Desktop Dropdown Links */}
-        <div className="nav-links-desktop">
+        {/* Desktop Links */}
+        <div className="nav-links-desktop" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           {items.map((item, idx) => (
             <div 
               key={idx} 
@@ -114,6 +114,11 @@ const CardNav: React.FC<CardNavProps> = ({
               </div>
             </div>
           ))}
+
+          {/* Standalone Direct Team Link */}
+          <Link to="/team" className="nav-dropdown-trigger" style={{ textDecoration: 'none' }}>
+            Team
+          </Link>
         </div>
 
         {/* Action Button & Mobile Toggle */}
@@ -142,6 +147,15 @@ const CardNav: React.FC<CardNavProps> = ({
               </div>
             </div>
           ))}
+          
+          {/* Mobile Team Section Link */}
+          <div className="mobile-drawer-section">
+            <div className="mobile-section-links">
+              <Link to="/team" onClick={() => setMobileMenuOpen(false)} style={{ fontWeight: 600 }}>
+                Team
+              </Link>
+            </div>
+          </div>
         </div>
 
       </nav>
