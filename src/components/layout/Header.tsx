@@ -38,7 +38,6 @@ const Header: React.FC = () => {
       <CardNav
         items={navItems}
         logoAlt="Instrumate"
-        baseColor="#FAF9F6"
         buttonBgColor="#5E3BEE"
         buttonTextColor="#fff"
       />

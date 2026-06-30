@@ -1,8 +1,7 @@
-import { useState } from "react";
 import { Linkedin, Github, Mail, ArrowUpRight, Shield, Layers, Code, Layout, Database, Sparkles, MessageSquare } from "lucide-react";
 
 const TeamPage = () => {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  // 💡 REMOVED: const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const teamMembers = [
     {
@@ -100,7 +99,6 @@ const TeamPage = () => {
   return (
     <main className="min-h-screen bg-[#FAF9F6] font-['Outfit',sans-serif] py-24 relative overflow-hidden">
       
-      {/* Subtle background glow matrix */}
       <div className="absolute inset-0 pointer-events-none opacity-30">
         <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-radial from-[#5E3BEE]/10 to-transparent blur-3xl" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-radial from-[#F59E0B]/5 to-transparent blur-3xl" />
@@ -108,7 +106,6 @@ const TeamPage = () => {
 
       <section className="max-w-7xl mx-auto px-6 relative z-10">
         
-        {/* Header Layout: Asymmetric Left-aligned Content Split */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-24 border-b border-[#2D1A4A]/10 pb-12">
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-[#EBE9E0] shadow-xs mb-6">
@@ -127,18 +124,15 @@ const TeamPage = () => {
           </div>
         </div>
 
-        {/* Interactive Modern Masonry-Style Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {teamMembers.map((member, index) => {
-            const isHovered = hoveredIndex === index;
+            // 💡 REMOVED: The unused 'isHovered' assignment statement
             return (
               <div
                 key={index}
                 className="bg-white rounded-[2.5rem] border border-[#EBE9E0] p-8 relative flex flex-col justify-between min-h-[380px] transition-all duration-500 overflow-hidden group shadow-[0_10px_30px_rgba(45,26,74,0.02)] hover:shadow-[0_30px_60px_rgba(45,26,74,0.06)] hover:-translate-y-2"
-                onMouseEnter={() => setHoveredIndex(index)}
-                onMouseLeave={() => setHoveredIndex(null)}
+                // 💡 REMOVED: Unused event listeners tracking index state
               >
-                {/* Top Row Context */}
                 <div className="flex items-center justify-between">
                   <div className="w-10 h-10 rounded-2xl bg-[#FAF9F6] border border-[#EBE9E0] flex items-center justify-center group-hover:bg-[#2D1A4A] group-hover:text-white transition-all duration-300">
                     {member.icon}
@@ -148,7 +142,6 @@ const TeamPage = () => {
                   </div>
                 </div>
 
-                {/* Text Content Area */}
                 <div className="my-8 space-y-4">
                   <div className="space-y-1">
                     <h3 className="text-2xl font-[800] text-[#2D1A4A] tracking-tight transition-transform duration-300 group-hover:translate-x-1">
@@ -163,7 +156,6 @@ const TeamPage = () => {
                   </p>
                 </div>
 
-                {/* Clean Bottom Footer Row */}
                 <div className="flex items-center justify-between pt-6 border-t border-[#FAF9F6]">
                   <div className="flex items-center gap-1">
                     
@@ -194,7 +186,6 @@ const TeamPage = () => {
 
                   </div>
 
-                  {/* Gradient Identity Badge */}
                   <div className="relative flex items-center justify-center w-8 h-8 rounded-full overflow-hidden select-none">
                     <div className={`absolute inset-0 bg-gradient-to-tr ${member.accent} opacity-20 group-hover:opacity-100 transition-all duration-500`} />
                     <span className="text-[10px] font-bold text-[#2D1A4A] group-hover:text-white transition-colors z-10">
