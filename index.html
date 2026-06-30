@@ -4,46 +4,93 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#5E3BEE" />
-    <meta
-      name="description"
-      content="Instrumate Africa - AI-powered Kenyan Sign Language (KSL) tools for inclusive education."
-    />
     
     <title>Instrumate | Inclusive KSL Learning</title>
+    <meta name="description" content="Instrumate Africa delivers AI-powered Kenyan Sign Language (KSL) tools and 3D assets to build inclusive, accessible education for multi-sensory learners." />
+    <meta name="keywords" content="Instrumate Africa, Kenyan Sign Language, KSL, inclusive education, AI sign language, accessibility technology, multi-sensory learning" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://instrumate.jhubafrica.com/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://instrumate.jhubafrica.com/" />
+    <meta property="og:title" content="Instrumate | Inclusive KSL Learning" />
+    <meta property="og:description" content="Empowering educators and learners with AI-driven Kenyan Sign Language (KSL) tools and interactive 3D assets." />
+    <meta property="og:image" content="/ogimage.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Instrumate Africa - AI-powered Kenyan Sign Language Learning platform interface banner." />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://instrumate.jhubafrica.com/" />
+    <meta name="twitter:title" content="Instrumate | Inclusive KSL Learning" />
+    <meta name="twitter:description" content="Empowering educators and learners with AI-driven Kenyan Sign Language (KSL) tools." />
+    <meta name="twitter:image" content="/ogimage.png" />
 
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="apple-touch-icon" href="/logo.svg" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-
     <link 
       href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600;800&family=Outfit:wght@300;400;600;800;900&display=swap" 
       rel="stylesheet" 
     />
 
     <style>
-      /* Smooth background transition to avoid white flash on load */
       body {
         margin: 0;
         background-color: #FAF9F6;
         color: #2D1A4A;
         font-family: 'Outfit', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
-      /* Simple loading state style */
       #root:empty {
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
         height: 100vh;
         background: #FAF9F6;
       }
+      /* Simple smooth bounce animation for fallback/loading state */
+      .loading-brand {
+        font-weight: 800; 
+        color: #5E3BEE; 
+        letter-spacing: -0.05em; 
+        font-size: 1.75rem;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 0.6; transform: scale(0.98); }
+        50% { opacity: 1; transform: scale(1); }
+      }
     </style>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Instrumate Africa",
+        "url": "https://instrumate.jhubafrica.com/",
+        "logo": "https://instrumate.jhubafrica.com/logo.svg",
+        "description": "AI-powered Kenyan Sign Language (KSL) tools for inclusive education and multi-sensory learners.",
+        "sameAs": [
+          "https://linkedin.com/company/instrumate-africa"
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root">
-      <div style="font-weight: 800; color: #5E3BEE; letter-spacing: -0.05em; font-size: 1.5rem;">
-        Instrumate
-      </div>
+      <main>
+        <div class="loading-brand">Instrumate</div>
+        <noscript>
+          <p style="text-align: center; padding: 20px;">
+            For the best experience featuring our interactive KSL toolsets, please enable JavaScript.
+          </p>
+        </noscript>
+      </main>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
