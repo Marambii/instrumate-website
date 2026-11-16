@@ -40,7 +40,6 @@ function AnimatedRoutes() {
           <Route path="/sign-detection" element={<SignDetection />} />
           <Route path="/translation" element={<Translation />} />
           <Route path='/team' element={<TeamPage />} />
-          <Route path="/Learn" element={<Learn />} />
           {/* <Route path="/Learn" element={<Learn />} /> */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
