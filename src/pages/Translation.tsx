@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import PageWrapper from "../components/PageWrapper";
 import SignAvatar from "../components/SignAvatar";
-import type { MpLandmark } from "../demo/RPMThreeMpPose";
 
 
 interface TranslationResponse {
@@ -11,6 +10,8 @@ interface TranslationResponse {
   words: string[]; // Add this if your backend returns an array of individual words
   // add any animation data properties here too if needed
 }
+import type { MpLandmark } from "../demo/RPMThreeMpPose";
+
 
 interface AnimationResponse {
   animation_data: MpLandmark[][];
@@ -19,10 +20,10 @@ interface AnimationResponse {
 export default function TranslationPage() {
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(false);
+  const [translationData, setTranslationData] = useState<TranslationResponse | null>(null);
   const [inputFile, setInputFile] = useState<File | null>(null);
   // Create a reference to link our button to the hidden input
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [translationData, setTranslationData] = useState<TranslationResponse | null>(null);
   const [animationData, setanimationData] = useState<AnimationResponse | null>(null);
 
   const handleButtonClick = () => {
@@ -68,9 +69,8 @@ export default function TranslationPage() {
     if (!inputText && !inputFile) return;
 
     
+    setLoading(true);
     if(inputFile){
-      setLoading(true);
-
       const formData = new FormData();
       
       // 2. Append the file payload (the key must match request.FILES.get("file"))
@@ -142,7 +142,7 @@ export default function TranslationPage() {
       }
     } else{
       console.error("Invalid upload type")
-    };
+    }
   }
 
 
@@ -229,6 +229,7 @@ export default function TranslationPage() {
                 {translationData?.translated_sentences?.map((sentence, index)  => (
                   <span key={index}>{sentence}</span>
                 )) || translationData?.translation || "Your translation will appear here."}
+    
               </p>
 
               <p className="text-[#4574a1] text-sm text-center px-4 pt-1 pb-3">
