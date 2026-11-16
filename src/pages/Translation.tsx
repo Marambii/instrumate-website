@@ -2,10 +2,19 @@ import { useState } from "react";
 import PageWrapper from "../components/PageWrapper";
 import SignAvatar from "../components/SignAvatar";
 
+
+interface TranslationResponse {
+  translated_sentences: string[]; // Add this if your backend returns an array of sentences
+  translation: string; // Add this if your backend returns a single translated string
+  original_sentences: string[]; // Add this if you want to show the original sentences too
+  words: string[]; // Add this if your backend returns an array of individual words
+  // add any animation data properties here too if needed
+}
+
 export default function TranslationPage() {
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [translationData, setTranslationData] = useState(null);
+  const [translationData, setTranslationData] = useState<TranslationResponse | null>(null);
 
   const handleTranslate = async () => {
     if (!inputText) return;
@@ -13,12 +22,13 @@ export default function TranslationPage() {
     setLoading(true);
     try {
       // Replace with your actual backend endpoint
-      const response = await fetch("https://your-backend-api.com/translate", {
+      const response = await fetch("https://stenothermal-isabell-predigital.ngrok-free.dev/translate/english-to-ksl", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: inputText, language: "KSL" }),
       });
       const data = await response.json();
+      console.log("Translation data received:", data);
       setTranslationData(data); // Assuming data contains animation coordinates/paths
     } catch (error) {
       console.error("Translation failed:", error);
@@ -87,7 +97,9 @@ export default function TranslationPage() {
               </div>
 
               <p className="text-[#0c151d] text-base text-center px-4 pt-1 pb-3">
-                {inputText || "Your translation will appear here."}
+                {translationData?.translated_sentences?.map((sentence, index)  => (
+                  <span key={index}>{sentence}</span>
+                )) || translationData?.translation || "Your translation will appear here."}
               </p>
 
               <p className="text-[#4574a1] text-sm text-center px-4 pt-1 pb-3">
