@@ -13,14 +13,6 @@ interface TranslationResponse {
 import type { MpLandmark } from "../demo/RPMThreeMpPose";
 
 
-interface TranslationResponse {
-  translated_sentences: string[]; // Add this if your backend returns an array of sentences
-  translation: string; // Add this if your backend returns a single translated string
-  original_sentences: string[]; // Add this if you want to show the original sentences too
-  words: string[]; // Add this if your backend returns an array of individual words
-  // add any animation data properties here too if needed
-}
-
 interface AnimationResponse {
   animation_data: MpLandmark[][];
 }
@@ -32,7 +24,6 @@ export default function TranslationPage() {
   const [inputFile, setInputFile] = useState<File | null>(null);
   // Create a reference to link our button to the hidden input
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [translationData, setTranslationData] = useState<TranslationResponse | null>(null);
   const [animationData, setanimationData] = useState<AnimationResponse | null>(null);
 
   const handleButtonClick = () => {
@@ -79,25 +70,7 @@ export default function TranslationPage() {
 
     
     setLoading(true);
-    try {
-      // Replace with your actual backend endpoint
-      const response = await fetch("https://stenothermal-isabell-predigital.ngrok-free.dev/translate/english-to-ksl", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: inputText, language: "KSL" }),
-      });
-      const data = await response.json();
-      console.log("Translation data received:", data);
-      setTranslationData(data); // Assuming data contains animation coordinates/paths
-    } catch (error) {
-      console.error("Translation failed:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
     if(inputFile){
-      setLoading(true);
-
       const formData = new FormData();
       
       // 2. Append the file payload (the key must match request.FILES.get("file"))
@@ -169,7 +142,7 @@ export default function TranslationPage() {
       }
     } else{
       console.error("Invalid upload type")
-    };
+    }
   }
 
 
@@ -256,9 +229,7 @@ export default function TranslationPage() {
                 {translationData?.translated_sentences?.map((sentence, index)  => (
                   <span key={index}>{sentence}</span>
                 )) || translationData?.translation || "Your translation will appear here."}
-                {translationData?.translated_sentences?.map((sentence, index)  => (
-                  <span key={index}>{sentence}</span>
-                )) || translationData?.translation || "Your translation will appear here."}
+    
               </p>
 
               <p className="text-[#4574a1] text-sm text-center px-4 pt-1 pb-3">
