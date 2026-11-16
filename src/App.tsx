@@ -3,6 +3,7 @@ import {
   Routes,
   Route,
   useLocation,
+  Navigate,
 } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { useEffect } from "react";
@@ -12,12 +13,15 @@ import MainLayout from "./components/layout/MainLayout";
 import Home from "./pages/Home";
 import SignDetection from "./pages/SignDetection";
 import Translation from "./pages/Translation";
-import Learn from "./pages/Learn";
+// import Learn from "./pages/Learn";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
+import Logout from "./pages/Logout";
 import Demo from "./demo/demo";
 import TeamPage from './pages/Team';
 
+import { Courses } from './pages/lms/Courses';
+import { Classroom } from './pages/lms/Classroom';
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -37,9 +41,17 @@ function AnimatedRoutes() {
           <Route path="/translation" element={<Translation />} />
           <Route path='/team' element={<TeamPage />} />
           <Route path="/Learn" element={<Learn />} />
+          {/* <Route path="/Learn" element={<Learn />} /> */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/logout" element={<Logout />} />
           <Route path="/demo" element={<Demo />} />
+          {/* Catalog route */}
+          <Route path="/courses" element={<Courses />} />
+          {/* Classroom unified layout */}
+          <Route path="/courses/:courseId" element={<Classroom />} />
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/courses" replace />} />
         </Route>
       </Routes>
     </AnimatePresence>

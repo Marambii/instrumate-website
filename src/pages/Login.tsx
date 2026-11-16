@@ -11,9 +11,19 @@ const Login: React.FC = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post("login/", { username, password });
-      navigate("/home");
+      const response = await api.post("auth/login/", {
+        username,
+        password,
+      });
+
+      if (response.status === 200 || response.status === 201) {
+        console.log("Login successful:", response.data);
+        navigate("/home");
+      } else {
+        alert("Login failed");
+      }
     } catch (error: any) {
+      console.error("Login error:", error.response?.data || error.message);
       alert("Login failed");
     }
   };
@@ -33,28 +43,37 @@ const Login: React.FC = () => {
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="bg-[#FAF9F6] p-4 rounded-2xl border border-transparent focus-within:border-[#5E3BEE] transition-all">
-              <label className="block text-[10px] uppercase tracking-widest font-bold text-[#514B5C] mb-1">Username</label>
+              <label className="block text-[10px] uppercase tracking-widest font-bold text-[#514B5C] mb-1">
+                Username
+              </label>
               <input 
                 type="text" 
                 value={username} 
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full bg-transparent outline-none text-[#2D1A4A] font-medium"
                 placeholder="Enter username"
+                required
               />
             </div>
 
             <div className="bg-[#FAF9F6] p-4 rounded-2xl border border-transparent focus-within:border-[#5E3BEE] transition-all">
-              <label className="block text-[10px] uppercase tracking-widest font-bold text-[#514B5C] mb-1">Password</label>
+              <label className="block text-[10px] uppercase tracking-widest font-bold text-[#514B5C] mb-1">
+                Password
+              </label>
               <input 
                 type="password" 
                 value={password} 
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-transparent outline-none text-[#2D1A4A] font-medium"
                 placeholder="••••••••"
+                required
               />
             </div>
 
-            <button className="w-full bg-[#5E3BEE] text-white font-bold py-4 rounded-2xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all">
+            <button 
+              type="submit" 
+              className="w-full bg-[#5E3BEE] text-white font-bold py-4 rounded-2xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all"
+            >
               Continue
             </button>
           </form>

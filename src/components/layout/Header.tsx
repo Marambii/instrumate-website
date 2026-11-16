@@ -18,7 +18,7 @@ const Header: React.FC = () => {
       bgColor: "#FFD89C", 
       textColor: "#2D1A4A",
       links: [
-        { label: "Lessons", href: "/Learn" },
+        { label: "Lessons", href: "/learning/courses" },
         { label: "Community", href: "/community" }
       ]
     },
@@ -28,7 +28,8 @@ const Header: React.FC = () => {
       textColor: "#fff",
       links: [
         { label: "Log In", href: "/login" },
-        { label: "Sign Up", href: "/signup" }
+        { label: "Sign Up", href: "/signup" },
+        { label: "Log Out", href: "/logout" }
       ]
     }
   ];
